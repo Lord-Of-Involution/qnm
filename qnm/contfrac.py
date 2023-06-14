@@ -284,3 +284,13 @@ def lentz_gen(a, b, tol=1.e-10, N_min=0, N_max=np.Inf, tiny=1.e-30):
 
     # Success or failure can be assessed by the user
     return f_new, np.abs(Delta - 1.), j-1
+
+def bruteforce(a, b, g, eta, limit, N_max=100):
+  N=min(np.size(a),np.size(b),np.size(g),N_max)
+  k2=limit
+  k1=(-eta+g[N-2])/(k2*(a[N-1]*k2+b[N-1]-a[N-2])+g[N-1]-b[N-2])
+  for i in range(N-2,1,-1):
+      temp=(-eta+g[i-1])/(k1*(a[i]*k2+b[i]-a[i-1])+g[i]-b[i-1])
+      k2=k1
+      k1=temp
+  return k1

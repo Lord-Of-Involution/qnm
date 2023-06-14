@@ -79,6 +79,8 @@ class NearbyRootFinder(object):
         self.s           = -2
         self.m           = 2
         self.A0          = 4.+0.j
+        self.e           = -1.
+        self.l           = 2
         self.l_max       = 20
         self.omega_guess = .5-.5j
         self.tol         = np.sqrt(np.finfo(float).eps)
@@ -102,6 +104,8 @@ class NearbyRootFinder(object):
         self.s           = kwargs.get('s',            self.s)
         self.m           = kwargs.get('m',            self.m)
         self.A0          = kwargs.get('A_closest_to', self.A0)
+        self.e           = kwargs.get('e',            self.e)
+        self.l           = kwargs.get('l',            self.l)
         self.l_max       = kwargs.get('l_max',        self.l_max)
         self.omega_guess = kwargs.get('omega_guess',  self.omega_guess)
         self.tol         = kwargs.get('tol',          self.tol)
@@ -158,17 +162,22 @@ class NearbyRootFinder(object):
         # TODO!
         # Determine the value to use for cf_tol based on
         # the Jacobian, cf_tol = |d cf(\omega)/d\omega| tol.
-        inv_err, self.cf_err, self.n_frac = radial.leaver_cf_inv_lentz(omega, self.a,
-                                                          self.s, self.m, A,
-                                                          self.n_inv, self.cf_tol,
+        #
+        # inv_err, self.cf_err, self.n_frac = radial.leaver_cf_inv_lentz(omega, self.a,
+        #                                                  self.s, self.m, A,
+        #                                                  self.n_inv, self.cf_tol,
+        #                                                  self.Nr_min, self.Nr_max)
+        rhs = radial.leaver_brute(omega,self.a,self.s,self.l,self.m,self.e,self.A,self.n_inv,self.cf_tol,
                                                           self.Nr_min, self.Nr_max)
         # logging.info("Lentz terminated with cf_err={}, n_frac={}".format(self.cf_err, self.n_frac))
 
         # Insert optional poles
-        pole_factors   = np.prod(omega - self.poles)
-        supp_err = inv_err / pole_factors
-
-        return [np.real(supp_err), np.imag(supp_err)]
+        # pole_factors   = np.prod(omega - self.poles)
+        # supp_err = inv_err / pole_factors
+        rho = omega*(-1j)
+        sq = np.sqrt(rho**2+(4j)*self.a*self.m*rho)
+        lhs = - ((3.*rho**2 + 6.*rho*sq-sq**2) + (3.*rho + sq) + self.l*(self.l-1) - self.e)/(2.*sq+1.)
+        return [np.real(rhs-lhs), np.imag(rhs-lhs)]
 
     def do_solve(self):
         """Try to find a root of the continued fraction equation,

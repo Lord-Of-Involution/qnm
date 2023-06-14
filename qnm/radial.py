@@ -7,7 +7,7 @@ from numba import njit
 import numpy as np
 
 from .contfrac import lentz
-
+from .contfrac import bruteforce
 # TODO some documentation here, better documentation throughout
 
 @njit(cache=True)
@@ -402,4 +402,81 @@ def leaver_cf_inv_lentz(omega, a, s, m, A, n_inv,
     return (beta[n_inv]
             - gamma[n_inv] * conv1
             + gamma[n_inv] * conv2), np.abs(Delta-1.), j-1
+
+def leaver_brute(omega, a, s, l, m, e, A, n_inv,
+                        tol=1.e-10, N_min=0, N_max=np.Inf):
+    """Compute the n_inv inversion of the infinite continued
+    fraction for solving the radial Teukolsky equation, using
+    modified Lentz's method.
+    The value returned is Eq. (44) of [1]_.
+
+    Same as :meth:`leaver_cf_inv_lentz_old`, but with Lentz's method
+    inlined so that numba can speed things up.
+
+    Parameters
+    ----------
+    omega: complex
+      The complex frequency for evaluating the infinite continued
+      fraction.
+
+    a: float
+      Spin parameter of the black hole, 0. <= a < 1 .
+
+    s: int
+      Spin weight of the field (i.e. -2 for gravitational).
+
+    m: int
+      Azimuthal number for the perturbation.
+
+    A: complex
+      Separation constant between angular and radial ODEs.
+
+    n_inv: int
+      Inversion number for the infinite continued fraction. Finding
+      the nth overtone is typically most stable when n_inv = n .
+
+    tol: float, optional [default: 1.e-10]
+      Tolerance for termination of Lentz's method.
+
+    N_min: int, optional [default: 0]
+      Minimum number of iterations through Lentz's method.
+
+    N_max: int or comparable, optional [default: np.Inf]
+      Maximum number of iterations for Lentz's method.
+
+    Returns
+    -------
+    (complex, float, int)
+      The first value (complex) is the nth inversion of the infinite
+      continued fraction evaluated with these arguments. The second
+      value (float) is the estimated error from Lentz's method. The
+      third value (int) is the number of iterations of Lentz's method.
+
+    Examples
+    --------
+
+    >>> from qnm.radial import leaver_cf_inv_lentz
+    >>> print(leaver_cf_inv_lentz(omega=.4 - 0.2j, a=0.02, s=-2, m=2, A=4.+0.j, n_inv=0))
+    ((-3.5662773770495972-1.538871079338485j), 9.702532283649582e-11, 76)
+
+    References
+    ----------
+    .. [1] GB Cook, M Zalutskiy, "Gravitational perturbations of the
+       Kerr geometry: High-accuracy study," Phys. Rev. D 90, 124021
+       (2014), https://arxiv.org/abs/1410.7698 .
+
+    """
+
+    #D = D_coeffs(omega, a, s, m, A)
+
+    # This is only use for the terminating fraction
+    n = np.arange(0, n_inv+1)
+    rho = omega*(-1j)
+    sq = np.sqrt(rho**2+(4j)*a*m*rho)
+    alpha = n*n + 2.*n*(sq+1.) +2.*sq+1.
+    beta  = -2.*n*n + 2.*n(3.*rho+sq+1) + (3.*rho**2 + 6.*rho*sq-sq**2) + (3.*rho + sq) + l*(l-1.) - e
+    gamma = n*n + 4.*n*rho + (6.*rho**2 - 2.*rho*sq) - e -1
+    eta   = 2.*(rho**2 - rho*sq)
+    limit = 1. - np.sqrt(2.*rho/n_inv) + 0.5 / n_inv * (-3. + 5.*rho - sq) 
+    return bruteforce(alpha,beta,gamma,eta,limit,n_inv)
 
